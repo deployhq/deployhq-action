@@ -7,41 +7,45 @@ set -e
 # Check if DeployHQ webhook URL is set (Required).
 # Found in DeployHQ's dashboard, under "Automatic Deployments".
 if [ -z "$DEPLOYHQ_WEBHOOK_URL" ]; then
-  echo "DEPLOYHQ_WEBHOOK_URL is not set. Quitting."
+  echo "DEPLOYHQ_WEBHOOK_URL is not set. Please set your DEPLOYHQ_WEBHOOK_URL variable before retrying. Quitting."
   exit 1
 fi
 
 # Check if revision is set (Required). 
 # Can be set to "latest".
 if [ -z "$REPO_REVISION" ]; then
-  echo "REPO_REVISION is not set. Quitting."
-  exit 1
+  REPO_REVISION="latest"
+  echo "REPO_REVISION is not set. Setting to "latest" by default. If this is incorrect, please set "REPO_REVISION" to your preferred branch and retry."
 fi
 
 # Check if repo branch is set (Required).
 if [ -z "$REPO_BRANCH" ]; then
-  echo "REPO_BRANCH is not set. Quitting."
-  exit 1
+  REPO_BRANCH="main"
+  echo "REPO_BRANCH is not set. Setting to "main" by default. If this is incorrect, please set "REPO_BRANCH" to your preferred branch and retry."
 fi
 
 # Check if the email is set (Required).
 # If request is sent without email, 500 "INTERNAL_ERROR" response
 if [ -z "$DEPLOYHQ_EMAIL" ]; then
-  echo "DEPLOYHQ_EMAIL is not set. Quitting."
+  echo "DEPLOYHQ_EMAIL is not set. Please set your DEPLOYHQ_EMAIL variable before retrying. Quitting."
   exit 1
 fi
 
 # Check if repo clone URL is set (Required). 
 # URL must follow the SSH pattern: "git@yourhost:path".
+### ${TESTING_SUBSTRING#*//} -> removes all prefix until "//", used for domain substring, as GITHUB_SERVER_URL is given with "https://"."
 if [ -z "$REPO_CLONE_URL" ]; then
-  echo "REPO_CLONE_URL is not set. Quitting."
-  exit 1
+  REPO_CLONE_URL="git@${GITHUB_SERVER_URL#*//}:${GITHUB_REPOSITORY}.git"
+  echo "REPO_CLONE_URL is not set. Setting REPO_CLONE_URL as ${REPO_CLONE_URL}."
 fi
+
+
 
 set -- --data '{"payload":{ "new_ref":"'"${REPO_REVISION}"'","branch":"'"${REPO_BRANCH}"'","email":"'"${DEPLOYHQ_EMAIL}"'","clone_url":"'"${REPO_CLONE_URL}"'"}}'
 
-######## Call the API and store the response for later. ########
-# API docs: https://www.deployhq.com/support/api/deployments/create-a-new-deployment
+######## Call the webhook API (POST) and store the response for later. ########
+# Payload reference: https://www.deployhq.com/support/deployments/automatic-deployments/custom
+# For full API call reference, send a GET API call to "DEPLOYHQ_WEBHOOK_URL".
  
 HTTP_RESPONSE=$(curl -sS "${DEPLOYHQ_WEBHOOK_URL}" \
                     -H "Content-type: application/json" \
