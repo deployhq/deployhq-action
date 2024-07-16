@@ -1,7 +1,6 @@
-# GitHub Action to Trigger a Deployment on DeployHQ 🚀
+# GitHub Action to Trigger a Deployment on DeployHQ with a Webhook URL 🚀
 
-This simple action calls the [DeployHQ API](https://www.deployhq.com/support/api/deployments/create-a-new-deployment) to trigger a deployment on DeployHQ.
-
+This action calls the DeployHQ's [Webhook URL](https://www.deployhq.com/support/deployments/automatic-deployments/custom) created for your DeployHQ account to trigger a deployment on DeployHQ. 
 
 ## Usage
 
@@ -11,21 +10,18 @@ All sensitive variables should be [set as encrypted secrets](https://help.github
 
 | Key                        | Value                                                                                                                                                                                                                         | Suggested Type | Required |
 |----------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------| ------------- | ------------- |
-| `DEPLOYHQ_USER_ID`      | **Required.** Your DeployHQ user. For example, `adam@atechmedia.com`.                                                                                                                                                            | `secret` | **Yes** |
-| `DEPLOYHQ_API_TOKEN`      | **Required.** The Api Token that will be used for authentication, which can be found in your DeployHQ Dashboard, under `Settings` >> `Security`. For example, `a74b8262ebae565e7572b37a94b11e27decadf05`.                      | `secret` | **Yes** |
-| `DEPLOYHQ_SUBDOMAIN`      | **Required.** Your DeployHQ subdomain. For example, if your url is `https://matias.deployhq.com`, then it's `matias`.                                                                                                          | `secret` | **Yes** |
-| `DEPLOYHQ_PROJECT_ID` | **Required.** The DeployHQ Project ID in which the deployment will be triggered. For example, if they URL to your project is `https://matias.deployhq.com/projects/italy`, then this variable would be `italy`.                    | `secret` | **Yes** |                                                                                                   | `secret` | **Yes** |
-| `DEPLOYHQ_PARENT_ID`      | **Required.** The server (or server group) to which you're deploying.                                                                                                                                                          | `secret` | **Yes** |
-| `DEPLOYHQ_START_REVISION`    | **Required.** The start revision of the deployment (a blank value can be sent if you wish to deploy the entire branch).                                                                                                     | `env` | **Yes** |
-| `DEPLOYHQ_END_REVISION`    | **Required.** The end revision of the deployment.                                                                                                                                                                             | `env` | **Yes** |
-
+| `DEPLOYHQ_WEBHOOK_URL`     | **Required.** Your DeployHQ webhook URL. Can be found in your DeployHQ Dashboard, under "Automatic Deployments"                                                                                                               | `secret` | **Yes** |
+| `REPO_REVISION`            | **Required.** The revision you wish to deploy. Can also be set to "latest" if you wish to deploy the latest revision in your set branch.                                                                                      | `secret` | **Yes** |
+| `REPO_BRANCH`              | **Required.** The branch your revision is on.                                                                                                                                                                                 | `secret` | **Yes** |
+| `DEPLOYHQ_EMAIL`           | **Required.** Your DeployHQ user. For example, matias@barilla.com.                                                                                                                                                            | `secret` | **Yes** |
+| `REPO_CLONE_URL`           | **Required.** The path to your repository (as entered in the Deploy UI).                                                                                                                                                      | `secret` | **Yes** |
 
 ### `workflow.yml` Example
 
 Place in a `.yml` file such as this one in your `.github/workflows` folder. [Refer to the documentation on workflow YAML syntax here.](https://help.github.com/en/articles/workflow-syntax-for-github-actions)
 
 ```yaml
-name: Deploy my website in DeployHQ
+name: Deploy my website in DeployHQ w/ my webhook URL
 on: push
 
 jobs:
@@ -34,15 +30,15 @@ jobs:
     steps:
 
     # Put steps here to build your site, deploy it to a service, etc.
-    - name: Trigger deployment in DeployHQ
-      uses: HarmonicVic/DeployHQ-action@main
+    - name: Trigger deployment in DeployHQ w/ webhook URL
+      uses: viktodorov/deployhq-webhook-action@main
       env:
         # All these values should be set as encrypted secrets in your repository settings
-        DEPLOYHQ_USER_ID: ${{ secrets.DEPLOYHQ_USER_ID }}
-        DEPLOYHQ_API_TOKEN: ${{ secrets.DEPLOYHQ_API_TOKEN }}
-        DEPLOYHQ_SUBDOMAIN: ${{ secrets.DEPLOYHQ_SUBDOMAIN }}
-        DEPLOYHQ_PROJECT_ID: ${{ secrets.DEPLOYHQ_PROJECT_ID }} 
-        DEPLOYHQ_PARENT_ID: ${{ secrets.DEPLOYHQ_PARENT_ID }}
+        DEPLOYHQ_WEBHOOK_URL: ${{ secrets.DEPLOYHQ_WEBHOOK_URL }}
+        REPO_REVISION: ${{ secrets.REPO_REVISION }}
+        REPO_BRANCH: ${{ secrets.REPO_BRANCH }}
+        DEPLOYHQ_EMAIL: ${{ secrets.DEPLOYHQ_EMAIL }} 
+        REPO_CLONE_URL: ${{ secrets.REPO_CLONE_URL }}
 ```
 
 ## License
