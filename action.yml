@@ -1,0 +1,9 @@
+name: "DeployHQ - Trigger a Deployment with a webhook"
+description: "Trigger a given deployment using DeployHQ's Webhook."
+author: facundofarias
+runs:
+  using: docker
+  image: Dockerfile
+branding:
+  color: purple
+  icon: upload-cloud
