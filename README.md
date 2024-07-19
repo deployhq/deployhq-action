@@ -31,7 +31,7 @@ jobs:
 
     # Put steps here to build your site, deploy it to a service, etc.
     - name: Trigger deployment in DeployHQ w/ webhook URL
-      uses: viktodorov/deployhq-action@main
+      uses: deployhq/deployhq-action@main
       env:
         # All these values should be set as encrypted secrets in your repository settings
         DEPLOYHQ_WEBHOOK_URL: ${{ secrets.DEPLOYHQ_WEBHOOK_URL }}
