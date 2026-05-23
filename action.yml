@@ -1,9 +1,113 @@
-name: "DeployHQ - Trigger a Deployment with a webhook"
-description: "Trigger a given deployment using DeployHQ's Webhook."
-author: facundofarias
-runs:
-  using: docker
-  image: Dockerfile
+name: "DeployHQ — Deploy via CLI"
+description: "Trigger a DeployHQ deployment using the official dhq CLI."
+author: deployhq
 branding:
   color: purple
   icon: upload-cloud
+
+inputs:
+  # --- Auth (required) ---
+  api-key:
+    description: "DeployHQ API key. Pass as a secret."
+    required: true
+  account:
+    description: "DeployHQ account subdomain (e.g. 'acme' for acme.deployhq.com)."
+    required: true
+  email:
+    description: "DeployHQ user email."
+    required: true
+
+  # --- Deploy target ---
+  project:
+    description: "Project identifier or permalink. Falls back to DEPLOYHQ_PROJECT if unset."
+    required: false
+    default: ""
+  server:
+    description: "Server identifier or name (fuzzy-matched). Auto-selected if the project has only one server."
+    required: false
+    default: ""
+  revision:
+    description: "Commit SHA to deploy. Defaults to github.sha."
+    required: false
+    default: ${{ github.sha }}
+  branch:
+    description: "Branch the revision lives on. CLI auto-resolves from server config if omitted."
+    required: false
+    default: ""
+
+  # --- Behaviour ---
+  wait:
+    description: "Block until the deployment reaches a terminal status (completed/failed/cancelled). Action exit code reflects the result."
+    required: false
+    default: "true"
+  timeout:
+    description: "Max seconds to wait when wait=true. 0 (default) waits indefinitely."
+    required: false
+    default: "0"
+  dry-run:
+    description: "Preview the deploy without executing it."
+    required: false
+    default: "false"
+  full:
+    description: "Deploy the entire branch from the first commit (--full)."
+    required: false
+    default: "false"
+  start-revision:
+    description: "Start an incremental deploy from this commit."
+    required: false
+    default: ""
+  extra-args:
+    description: "Additional raw flags appended to `dhq deploy`. Escape hatch for newer CLI flags."
+    required: false
+    default: ""
+
+  # --- CLI install ---
+  cli-version:
+    description: "Pinned dhq CLI version (with or without leading 'v'). Override to track a newer or older release."
+    required: false
+    default: "v0.17.1"
+
+outputs:
+  deployment_id:
+    description: "DeployHQ deployment identifier."
+    value: ${{ steps.deploy.outputs.deployment_id }}
+  deployment_url:
+    description: "Web URL of the deployment in DeployHQ."
+    value: ${{ steps.deploy.outputs.deployment_url }}
+  status:
+    description: "Final deployment status when wait=true, or the queued status otherwise."
+    value: ${{ steps.deploy.outputs.status }}
+  server:
+    description: "Resolved server identifier."
+    value: ${{ steps.deploy.outputs.server }}
+  project:
+    description: "Resolved project permalink."
+    value: ${{ steps.deploy.outputs.project }}
+
+runs:
+  using: composite
+  steps:
+    - name: Install dhq CLI
+      shell: bash
+      env:
+        DHQ_VERSION: ${{ inputs.cli-version }}
+      run: ${{ github.action_path }}/scripts/install-cli.sh
+
+    - name: Deploy
+      id: deploy
+      shell: bash
+      env:
+        DEPLOYHQ_API_KEY:     ${{ inputs.api-key }}
+        DEPLOYHQ_ACCOUNT:     ${{ inputs.account }}
+        DEPLOYHQ_EMAIL:       ${{ inputs.email }}
+        INPUT_PROJECT:        ${{ inputs.project }}
+        INPUT_SERVER:         ${{ inputs.server }}
+        INPUT_REVISION:       ${{ inputs.revision }}
+        INPUT_BRANCH:         ${{ inputs.branch }}
+        INPUT_WAIT:           ${{ inputs.wait }}
+        INPUT_TIMEOUT:        ${{ inputs.timeout }}
+        INPUT_DRY_RUN:        ${{ inputs.dry-run }}
+        INPUT_FULL:           ${{ inputs.full }}
+        INPUT_START_REVISION: ${{ inputs.start-revision }}
+        INPUT_EXTRA_ARGS:     ${{ inputs.extra-args }}
+      run: ${{ github.action_path }}/scripts/deploy.sh
