@@ -104,8 +104,14 @@ fi
 
 if truthy "${INPUT_WAIT:-}" && ! truthy "${INPUT_DRY_RUN:-}"; then
     timeout_seconds="${INPUT_TIMEOUT:-0}"
+    if ! [[ "$timeout_seconds" =~ ^[0-9]+$ ]]; then
+        echo "INPUT_TIMEOUT must be a non-negative integer number of seconds (got: ${timeout_seconds})." >&2
+        exit 1
+    fi
     started=$(date +%s)
     poll_interval=5
+    consecutive_errors=0
+    max_consecutive_errors=12  # ~1 minute of repeated failures at 5s intervals
 
     echo "Waiting for deployment ${deployment_id} to complete..."
     while true; do
@@ -122,9 +128,16 @@ if truthy "${INPUT_WAIT:-}" && ! truthy "${INPUT_DRY_RUN:-}"; then
 
         show_output=$(dhq deployments show "$deployment_id" -p "$project_for_polling" --json --non-interactive 2>/dev/null || true)
         if [[ -z "$show_output" ]] || ! echo "$show_output" | jq -e '.ok == true' >/dev/null 2>&1; then
-            echo "Failed to fetch deployment status; will retry..."
+            consecutive_errors=$(( consecutive_errors + 1 ))
+            if [[ $consecutive_errors -ge $max_consecutive_errors ]]; then
+                echo "Failed to fetch deployment status ${consecutive_errors} times in a row; giving up." >&2
+                status="failed"
+                break
+            fi
+            echo "Failed to fetch deployment status (${consecutive_errors}/${max_consecutive_errors}); will retry..."
             continue
         fi
+        consecutive_errors=0
 
         status=$(echo "$show_output" | jq -r '.data.status // empty')
         echo "  status: ${status}"
