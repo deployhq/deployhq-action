@@ -28,6 +28,8 @@ jobs:
 
 The action installs the pinned `dhq` CLI on the runner, calls `dhq deploy`, waits for the deployment to reach a terminal status, and fails the job if it didn't succeed.
 
+> **Deploying to production?** The examples below use `@v2` for readability. `@v2` is a floating tag that moves with each v2 release — pin a commit SHA instead for any workflow holding production credentials. See [Pinning](#pinning).
+
 ## Inputs
 
 | Name | Required | Default | Description |
@@ -112,6 +114,65 @@ The action installs the pinned `dhq` CLI on the runner, calls `dhq deploy`, wait
     server:     production
     extra-args: "--copy-config --run-build"
 ```
+
+## Pinning
+
+This action receives production deploy credentials, so the ref you pin decides who can run code with them.
+
+| Ref | Mutable? | Use when |
+|---|---|---|
+| `@<commit-sha>` | No — a commit SHA always names the same tree | **Recommended** for any workflow holding production secrets. |
+| `@v2.0.0` | Yes — git tags can always be moved | You want a readable ref and accept that risk. |
+| `@v2` | Yes, **by design** — tracks the latest v2.x.y | Non-production targets, or you accept implicit upgrades. |
+
+`@v2` moves whenever a new v2 release ships. That is the point of a floating major tag, but it also means anyone with write access to this repository — or anyone who compromises that access — can change the code your deploy credentials run, with no review on your side. For production, pin the SHA and record the version alongside it:
+
+```yaml
+- uses: deployhq/deployhq-action@ffe9caa159b501c83cac4b70d2983078a316d15d # v2.0.0
+  with:
+    api-key: ${{ secrets.DEPLOYHQ_API_KEY }}
+    account: ${{ secrets.DEPLOYHQ_ACCOUNT }}
+    email:   ${{ secrets.DEPLOYHQ_EMAIL }}
+    project: my-project
+    server:  production
+```
+
+That SHA is `v2.0.0`. Don't copy it blindly once later releases exist — resolve the one you want:
+
+```sh
+gh api repos/deployhq/deployhq-action/commits/v2.0.0 --jq .sha
+```
+
+(Use the `commits` endpoint, not `git/ref/tags` — these are annotated tags, so `git/ref/tags` returns the tag object rather than the commit you need.)
+
+### What SHA pinning does not cover
+
+Pinning this action fixes the installer script and the default `cli-version`. It does **not** fix the bytes of the `dhq` binary: `scripts/install-cli.sh` downloads the CLI from `github.com/deployhq/deployhq-cli/releases` at run time and verifies it against a `checksums.txt` fetched from that same release. That catches a corrupted download, not someone able to replace the release assets.
+
+If you need an immutable chain end to end, vendor the CLI yourself or run this action on a runner with `dhq` already installed.
+
+### Bounding the blast radius
+
+Pinning controls *what code* runs. These control *what it can reach*, and compose with it:
+
+- Store `DEPLOYHQ_*` as **environment** secrets on a protected environment (`environment: production` with required reviewers) rather than repository secrets, so other workflows in the same repo can't read them.
+- Set `permissions: contents: read` on the job. This action needs no `GITHUB_TOKEN` scope.
+
+### Keeping SHA pins current
+
+Dependabot bumps SHA pins for you, rewriting both the SHA and the trailing version comment so upgrades arrive as reviewable pull requests. Merge this into your existing `.github/dependabot.yml` rather than replacing the file — clobbering it would silently disable your other ecosystems:
+
+```yaml
+version: 2
+updates:
+  # add alongside any existing entries
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly
+```
+
+This only helps if a human reads the PR — exclude this action from any Dependabot auto-merge rule, or you get `@v2`'s implicit upgrades with a SHA pin's false confidence.
 
 ## Requirements
 
