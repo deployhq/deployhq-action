@@ -149,13 +149,13 @@ gh api repos/deployhq/deployhq-action/commits/v2.0.0 --jq .sha
 
 Pinning this action fixes the installer script and the default `cli-version`. It does **not** fix the bytes of the `dhq` binary: `scripts/install-cli.sh` downloads the CLI from `github.com/deployhq/deployhq-cli/releases` at run time and verifies it against a `checksums.txt` fetched from that same release. That catches a corrupted download, not someone able to replace the release assets.
 
-If you need an immutable chain end to end, vendor the CLI yourself or run this action on a runner with `dhq` already installed.
+If you need an immutable chain end-to-end, vendor the CLI yourself and call `dhq` directly rather than through this action. Installing `dhq` on the runner's `PATH` does **not** work — `scripts/install-cli.sh` downloads its own copy regardless and prepends that directory to `$GITHUB_PATH`. The one exception is a self-hosted runner, where you can pre-seed `$RUNNER_TOOL_CACHE/dhq/<version>/<os>_<arch>/dhq` (version without the leading `v`, e.g. `0.17.1/linux_amd64`); the installer reuses a binary already at that exact path instead of downloading.
 
 ### Bounding the blast radius
 
 Pinning controls *what code* runs. These control *what it can reach*, and compose with it:
 
-- Store `DEPLOYHQ_*` as **environment** secrets on a protected environment (`environment: production` with required reviewers) rather than repository secrets, so other workflows in the same repo can't read them.
+- Store `DEPLOYHQ_*` as **environment** secrets on a protected environment rather than repository secrets. Only a job that declares `environment: production` can request them, and they're released only once that environment's protection rules pass. The scoping alone doesn't stop another workflow from asking — the required reviewers and deployment branch policies you put on the environment are what actually gate it, so set them.
 - Set `permissions: contents: read` on the job. This action needs no `GITHUB_TOKEN` scope.
 
 ### Keeping SHA pins current
