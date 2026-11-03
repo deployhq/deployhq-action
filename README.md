@@ -47,6 +47,8 @@ The action installs the pinned `dhq` CLI on the runner, calls `dhq deploy`, wait
 | `full` | no | `"false"` | Deploy the entire branch from the first commit (`--full`). |
 | `start-revision` | no | `""` | Start an incremental deploy from this commit. |
 | `extra-args` | no | `""` | Additional raw flags appended to `dhq deploy`. Escape hatch for newer CLI flags. |
+| `skip-if-superseded` | no | `"false"` | Skip the deploy (`status=skipped`, exit 0) when `revision` is no longer the head of its branch. See [Deploying from CI](#deploying-from-ci). |
+| `github-token` | no | `${{ github.token }}` | Token for the branch-head lookup behind `skip-if-superseded`. Needs `contents: read`; unused otherwise. |
 | `cli-version` | no | pinned | Pin a specific `dhq` CLI release (e.g. `v0.17.1`). Defaults to the version this action was tested against. |
 
 ## Outputs
@@ -55,7 +57,7 @@ The action installs the pinned `dhq` CLI on the runner, calls `dhq deploy`, wait
 |---|---|
 | `deployment_id` | DeployHQ deployment identifier (e.g. `dep-abc123`). |
 | `deployment_url` | Web URL of the deployment in DeployHQ. |
-| `status` | Final status (`completed`/`failed`/`cancelled`/`timeout`) when `wait=true`, else the queued status. |
+| `status` | Final status (`completed`/`failed`/`cancelled`/`timeout`) when `wait=true`, else the queued status. `skipped` when `skip-if-superseded` found a newer commit (no deployment is created, and the other outputs are empty). |
 | `server` | Resolved server identifier. |
 | `project` | Resolved project permalink. |
 
@@ -114,6 +116,56 @@ The action installs the pinned `dhq` CLI on the runner, calls `dhq deploy`, wait
     server:     production
     extra-args: "--copy-config --run-build"
 ```
+
+## Deploying from CI
+
+The pattern for deploying a long-lived branch on every push (e.g. `staging` and `main`):
+
+```yaml
+jobs:
+  build:
+    # ... build and publish the artifact ...
+    # A newer push makes this run's result stale: cancel it instead of letting
+    # two builds race to publish the same mutable tag.
+    concurrency:
+      group: build-${{ github.ref }}
+      cancel-in-progress: true
+
+  deploy:
+    needs: [build, test, lint]   # a red commit never reaches a server
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/staging'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    # Protected environment: DEPLOYHQ_* secrets live here and production can
+    # require a reviewer.
+    environment: ${{ github.ref == 'refs/heads/main' && 'production' || 'staging' }}
+    # Queue per branch rather than cancelling: interrupting a half-applied
+    # deployment is worse than waiting behind it.
+    concurrency:
+      group: deploy-${{ github.ref }}
+      cancel-in-progress: false
+    steps:
+      - uses: deployhq/deployhq-action@v2   # pin a SHA for production, see Pinning
+        with:
+          api-key: ${{ secrets.DEPLOYHQ_API_KEY }}
+          account: my-account              # not a secret; a plain value is fine
+          email:   ${{ secrets.DEPLOYHQ_EMAIL }}
+          project: my-project
+          server:  ${{ github.ref == 'refs/heads/main' && 'Production' || 'Staging' }}
+          skip-if-superseded: "true"
+```
+
+Each piece closes a different gap:
+
+- **`needs`** gates the deploy on the commit passing CI.
+- **Build `cancel-in-progress: true`** drops superseded builds, which also skips their deploy job.
+- **Deploy `cancel-in-progress: false`** serialises deploys per branch. It orders them by when each run *reaches* the job, not by commit.
+- **`skip-if-superseded`** closes the remaining gap. A build that finished just before being superseded can still arrive at the deploy job with an old commit, and deploying it would roll the environment back. With the input set, the action compares `revision` to the current head of the branch and exits `0` with `status=skipped` instead. The newer run, already queued or running, wins.
+
+`skip-if-superseded` reads the branch from the `branch` input, or from `GITHUB_REF` when running on a branch. It fails the step, rather than deploying, if it can't resolve the branch, the revision isn't a commit SHA, or the GitHub API lookup fails. The job needs `contents: read`, which the `github-token` default already has. The job summary says when it skipped, so a `skipped` run is not mistaken for a successful deploy.
+
+`concurrency` and `environment` are job-level settings, so they can't be set from inside the action; that is why this is a recipe rather than an input.
 
 ## Pinning
 

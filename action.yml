@@ -61,6 +61,15 @@ inputs:
     required: false
     default: ""
 
+  skip-if-superseded:
+    description: "Skip the deploy (status=skipped, exit 0) when `revision` is no longer the head of its branch. Stops a slow run from rolling an environment back to an older commit. Needs `contents: read` on the token."
+    required: false
+    default: "false"
+  github-token:
+    description: "Token used to look up the branch head when skip-if-superseded=true. Only read for that lookup."
+    required: false
+    default: ${{ github.token }}
+
   # --- CLI install ---
   cli-version:
     description: "Pinned dhq CLI version (with or without leading 'v'). Override to track a newer or older release."
@@ -75,7 +84,7 @@ outputs:
     description: "Web URL of the deployment in DeployHQ."
     value: ${{ steps.deploy.outputs.deployment_url }}
   status:
-    description: "Final deployment status when wait=true, or the queued status otherwise."
+    description: "Final deployment status when wait=true, or the queued status otherwise. `skipped` when skip-if-superseded found a newer commit on the branch (no deployment is created)."
     value: ${{ steps.deploy.outputs.status }}
   server:
     description: "Resolved server identifier."
@@ -110,4 +119,6 @@ runs:
         INPUT_FULL:           ${{ inputs.full }}
         INPUT_START_REVISION: ${{ inputs.start-revision }}
         INPUT_EXTRA_ARGS:     ${{ inputs.extra-args }}
+        INPUT_SKIP_IF_SUPERSEDED: ${{ inputs.skip-if-superseded }}
+        INPUT_GITHUB_TOKEN:   ${{ inputs.github-token }}
       run: ${{ github.action_path }}/scripts/deploy.sh

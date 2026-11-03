@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- `skip-if-superseded` input (with `github-token`): skip the deploy with `status=skipped` when `revision` is no longer the head of its branch, so a slow run cannot roll an environment back to an older commit.
+- README: "Deploying from CI" recipe covering `needs`, `concurrency` and protected environments.
+
 ## v2.0.0 — Switch to the official DeployHQ CLI
 
 This is a breaking rewrite. The action now wraps the [`dhq` CLI](https://github.com/deployhq/deployhq-cli) instead of POSTing to a webhook URL. To stay on the old behaviour, pin `@v1`.

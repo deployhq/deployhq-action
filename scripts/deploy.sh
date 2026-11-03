@@ -35,6 +35,64 @@ emit_output() {
 
 require_jq
 
+# --- Superseded-revision guard ---------------------------------------------------
+#
+# A run that finishes building just after a newer push would otherwise deploy its
+# older commit and roll the environment back. When enabled, compare the revision
+# against the current head of its branch and bail out with status=skipped.
+
+if truthy "${INPUT_SKIP_IF_SUPERSEDED:-}"; then
+    guard_branch="${INPUT_BRANCH:-}"
+    if [[ -z "$guard_branch" && "${GITHUB_REF:-}" == refs/heads/* ]]; then
+        guard_branch="${GITHUB_REF#refs/heads/}"
+    fi
+    if [[ -z "$guard_branch" ]]; then
+        echo "skip-if-superseded needs a branch: set the 'branch' input, or run on a branch ref (got: ${GITHUB_REF:-unset})." >&2
+        exit 1
+    fi
+    if ! [[ "${INPUT_REVISION:-}" =~ ^[0-9a-fA-F]{7,40}$ ]]; then
+        echo "skip-if-superseded needs 'revision' to be a commit SHA (got: ${INPUT_REVISION:-empty})." >&2
+        exit 1
+    fi
+    if [[ -z "${INPUT_GITHUB_TOKEN:-}" || -z "${GITHUB_REPOSITORY:-}" ]]; then
+        echo "skip-if-superseded needs 'github-token' and GITHUB_REPOSITORY." >&2
+        exit 1
+    fi
+
+    encoded_branch=$(jq -rn --arg b "$guard_branch" '$b | @uri')
+    # Fail closed: if the head can't be resolved we don't know the revision is
+    # current, and deploying a stale one is the thing this guard exists to stop.
+    head_sha=$(curl -fsS --retry 3 \
+        -H "Authorization: Bearer ${INPUT_GITHUB_TOKEN}" \
+        -H "Accept: application/vnd.github+json" \
+        "${GITHUB_API_URL:-https://api.github.com}/repos/${GITHUB_REPOSITORY}/commits/${encoded_branch}" \
+        | jq -r '.sha // empty') || head_sha=""
+    if [[ -z "$head_sha" ]]; then
+        echo "Could not resolve the head of ${guard_branch} in ${GITHUB_REPOSITORY}." >&2
+        exit 1
+    fi
+
+    # tr, not ${var,,}: macOS ships bash 3.2. A short revision matches by prefix.
+    head_lc=$(printf '%s' "$head_sha" | tr 'A-F' 'a-f')
+    rev_lc=$(printf '%s' "$INPUT_REVISION" | tr 'A-F' 'a-f')
+    if [[ "$head_lc" != "$rev_lc"* ]]; then
+        echo "::notice::Skipping deploy: ${INPUT_REVISION} superseded by ${head_sha} on ${guard_branch}."
+        emit_output "deployment_id"  ""
+        emit_output "deployment_url" ""
+        emit_output "status"         "skipped"
+        emit_output "server"         ""
+        emit_output "project"        ""
+        if [[ -n "${GITHUB_STEP_SUMMARY:-}" ]]; then
+            {
+                echo "### DeployHQ deployment"
+                echo ""
+                echo "Skipped: \`${INPUT_REVISION}\` was superseded by \`${head_sha}\` on \`${guard_branch}\`."
+            } >> "$GITHUB_STEP_SUMMARY"
+        fi
+        exit 0
+    fi
+fi
+
 # --- Build dhq deploy argv -----------------------------------------------------
 
 args=(deploy --json --non-interactive)
