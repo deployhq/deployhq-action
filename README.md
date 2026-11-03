@@ -20,7 +20,7 @@ jobs:
         uses: deployhq/deployhq-action@v2
         with:
           api-key: ${{ secrets.DEPLOYHQ_API_KEY }}
-          account: ${{ secrets.DEPLOYHQ_ACCOUNT }}
+          account: acme
           email:   ${{ secrets.DEPLOYHQ_EMAIL }}
           project: my-project
           server:  production
@@ -35,7 +35,7 @@ The action installs the pinned `dhq` CLI on the runner, calls `dhq deploy`, wait
 | Name | Required | Default | Description |
 |---|---|---|---|
 | `api-key` | **yes** | — | DeployHQ API key. Generate one in **Account Settings → API access**. |
-| `account` | **yes** | — | Your DeployHQ account subdomain (e.g. `acme` for `acme.deployhq.com`). |
+| `account` | **yes** | — | Your DeployHQ account subdomain (e.g. `acme` for `acme.deployhq.com`). Not a secret: it appears in every dashboard URL, so a plain value in the workflow is fine. |
 | `email` | **yes** | — | DeployHQ user email associated with the API key. |
 | `project` | no | `""` | Project identifier or permalink. Falls back to `DEPLOYHQ_PROJECT` if unset. |
 | `server` | no | `""` | Server identifier or name. Fuzzy-matched. Auto-selected if the project has only one server. |
@@ -66,7 +66,7 @@ The action installs the pinned `dhq` CLI on the runner, calls `dhq deploy`, wait
   uses: deployhq/deployhq-action@v2
   with:
     api-key: ${{ secrets.DEPLOYHQ_API_KEY }}
-    account: ${{ secrets.DEPLOYHQ_ACCOUNT }}
+    account: acme
     email:   ${{ secrets.DEPLOYHQ_EMAIL }}
     project: my-project
     server:  production
@@ -84,7 +84,7 @@ The action installs the pinned `dhq` CLI on the runner, calls `dhq deploy`, wait
 - uses: deployhq/deployhq-action@v2
   with:
     api-key: ${{ secrets.DEPLOYHQ_API_KEY }}
-    account: ${{ secrets.DEPLOYHQ_ACCOUNT }}
+    account: acme
     email:   ${{ secrets.DEPLOYHQ_EMAIL }}
     project: my-project
     server:  production
@@ -97,7 +97,7 @@ The action installs the pinned `dhq` CLI on the runner, calls `dhq deploy`, wait
 - uses: deployhq/deployhq-action@v2
   with:
     api-key:  ${{ secrets.DEPLOYHQ_API_KEY }}
-    account:  ${{ secrets.DEPLOYHQ_ACCOUNT }}
+    account:  acme
     email:    ${{ secrets.DEPLOYHQ_EMAIL }}
     project:  my-project
     server:   staging
@@ -110,7 +110,7 @@ The action installs the pinned `dhq` CLI on the runner, calls `dhq deploy`, wait
 - uses: deployhq/deployhq-action@v2
   with:
     api-key:    ${{ secrets.DEPLOYHQ_API_KEY }}
-    account:    ${{ secrets.DEPLOYHQ_ACCOUNT }}
+    account:    acme
     email:      ${{ secrets.DEPLOYHQ_EMAIL }}
     project:    my-project
     server:     production
@@ -149,7 +149,7 @@ jobs:
       - uses: deployhq/deployhq-action@v2   # pin a SHA for production, see Pinning
         with:
           api-key: ${{ secrets.DEPLOYHQ_API_KEY }}
-          account: my-account              # not a secret; a plain value is fine
+          account: acme                    # the subdomain; not a secret
           email:   ${{ secrets.DEPLOYHQ_EMAIL }}
           project: my-project
           server:  ${{ github.ref == 'refs/heads/main' && 'Production' || 'Staging' }}
@@ -183,7 +183,7 @@ This action receives production deploy credentials, so the ref you pin decides w
 - uses: deployhq/deployhq-action@ffe9caa159b501c83cac4b70d2983078a316d15d # v2.0.0
   with:
     api-key: ${{ secrets.DEPLOYHQ_API_KEY }}
-    account: ${{ secrets.DEPLOYHQ_ACCOUNT }}
+    account: acme
     email:   ${{ secrets.DEPLOYHQ_EMAIL }}
     project: my-project
     server:  production
@@ -255,7 +255,7 @@ uses: deployhq/deployhq-action@v1
 **To migrate to v2:**
 
 1. Generate an API key in DeployHQ (**Account Settings → API access**).
-2. Add `DEPLOYHQ_API_KEY` and `DEPLOYHQ_ACCOUNT` as repository secrets. (`DEPLOYHQ_EMAIL` you already have.)
+2. Add `DEPLOYHQ_API_KEY` as a repository secret, and set your account subdomain as the `account` input (it isn't a secret). (`DEPLOYHQ_EMAIL` you already have.)
 3. Switch your workflow to `with:` syntax (see [Quick start](#quick-start)).
 4. Set `project:` and `server:` explicitly — the webhook implied these; the API requires them.
 5. Remove `DEPLOYHQ_WEBHOOK_URL` from your secrets when no other workflow uses it.
