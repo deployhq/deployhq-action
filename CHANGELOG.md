@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## v2.1.0 — Skip deploys of superseded commits
 
 ### Added
 
