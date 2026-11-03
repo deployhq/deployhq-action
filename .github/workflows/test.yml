@@ -87,3 +87,35 @@ jobs:
             || { echo "deployment_id was empty"; exit 1; }
           echo "deployment_id=${{ steps.deploy.outputs.deployment_id }}"
           echo "status=${{ steps.deploy.outputs.status }}"
+
+  # The PR merge commit is never the head of main, so the guard must skip. Needs
+  # no DeployHQ account: the guard exits before dhq is called, so the credentials
+  # below are placeholders. PR-only, since on a push to main the revision *is* the
+  # head and the action would go on to deploy.
+  superseded:
+    name: skip-if-superseded
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Run the action against a stale revision
+        id: deploy
+        uses: ./
+        with:
+          api-key: placeholder
+          account: placeholder
+          email:   placeholder@example.com
+          project: placeholder
+          branch:  main
+          skip-if-superseded: "true"
+
+      - name: Assert the deploy was skipped
+        env:
+          STATUS: ${{ steps.deploy.outputs.status }}
+          ID: ${{ steps.deploy.outputs.deployment_id }}
+        run: |
+          test "$STATUS" = "skipped" || { echo "expected status=skipped, got '$STATUS'"; exit 1; }
+          test -z "$ID" || { echo "expected no deployment_id, got '$ID'"; exit 1; }
